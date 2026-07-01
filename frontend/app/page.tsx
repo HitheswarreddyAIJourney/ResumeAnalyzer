@@ -8,12 +8,25 @@ interface ChatResponse {
   score?: number;
 }
 
+interface ChatMessage {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 export default function HomePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [question, setQuestion] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ChatResponse | null>(null);
   const [error, setError] = useState('');
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      role: 'assistant',
+      text: 'I can help you rewrite sections of your resume based on the feedback. Ask me to improve your summary, bullets, or skills.',
+    },
+  ]);
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files?.[0]) {
@@ -54,128 +67,185 @@ export default function HomePage() {
     }
   };
 
+  const handleChatSubmit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!chatInput.trim()) {
+      return;
+    }
+
+    const userMessage = chatInput.trim();
+    const feedbackHints = result?.suggestions?.slice(0, 3).join(' ');
+    const assistantReply = feedbackHints
+      ? `I can help with that. Based on the feedback, focus on ${feedbackHints}. I can help rewrite your summary, experience bullets, or skills section.`
+      : 'I can help refine your resume wording and structure. Share the section you want improved and I will suggest a stronger version.';
+
+    setChatMessages((prev) => [
+      ...prev,
+      { role: 'user', text: userMessage },
+      { role: 'assistant', text: assistantReply },
+    ]);
+    setChatInput('');
+  };
+
+  const scoreLabel = result?.score
+    ? result.score >= 80
+      ? 'Strong'
+      : result.score >= 60
+        ? 'Needs refinement'
+        : 'Needs work'
+    : 'Pending';
+
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#1f2937,_#050816_70%)] px-4 py-10 text-slate-100 sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6">
-        <header className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+    <main className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_#1f2937,_#050816_70%)] p-3 text-slate-100 sm:p-4 lg:p-5">
+      <div className="grid h-[calc(100vh-1.5rem)] gap-3 overflow-hidden lg:h-[calc(100vh-2.5rem)] lg:grid-cols-2 lg:grid-rows-2">
+        <section className="flex flex-col rounded-[28px] border border-slate-800 bg-slate-950/80 p-5 shadow-2xl shadow-black/30 backdrop-blur sm:p-6">
+          <div className="mb-4">
+            <p className="text-sm font-medium text-cyan-400">Top Left</p>
+            <h2 className="text-xl font-semibold">Upload Resume</h2>
+          </div>
+
+          <label className="block">
+            <span className="mb-2 block text-sm text-slate-300">Choose a resume file</span>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.txt"
+              onChange={handleFileChange}
+              className="block w-full cursor-pointer rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-slate-300 file:mr-4 file:rounded-xl file:border-0 file:bg-cyan-600 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:border-cyan-500"
+            />
+          </label>
+
+          <div className="mt-3 rounded-2xl border border-dashed border-slate-700 bg-slate-900/60 p-3 text-sm text-slate-400">
+            <div className="font-medium text-slate-200">{selectedFile ? selectedFile.name : 'No file chosen yet'}</div>
+            <div className="mt-1 text-xs">Supported formats: PDF, DOCX, DOC, TXT</div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="mt-4 flex flex-1 flex-col gap-3">
+            <textarea
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="Add instructions for the review..."
+              rows={4}
+              className="w-full flex-1 rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-cyan-500"
+            />
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isLoading ? 'Analyzing...' : 'Analyze Resume'}
+            </button>
+          </form>
+
+          {error ? <p className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">{error}</p> : null}
+        </section>
+
+        <section className="flex flex-col rounded-[28px] border border-slate-800 bg-slate-950/80 p-5 shadow-2xl shadow-black/30 backdrop-blur sm:p-6">
+          <div className="mb-4">
+            <p className="text-sm font-medium text-cyan-400">Top Right</p>
+            <h2 className="text-xl font-semibold">How to use this view</h2>
+          </div>
+          <div className="flex-1 space-y-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm leading-7 text-slate-300">
+            <p>1. Upload your resume file in the top-left panel.</p>
+            <p>2. Add extra instructions for the analysis if needed.</p>
+            <p>3. Review your score in the bottom-left panel.</p>
+            <p>4. Read the feedback and use the assistant to refine your resume.</p>
+          </div>
+        </section>
+
+        <section className="flex flex-col rounded-[28px] border border-slate-800 bg-slate-950/80 p-5 shadow-2xl shadow-black/30 backdrop-blur sm:p-6">
+          <div className="mb-4 flex items-center justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.35em] text-cyan-400">Resume Analyzer</p>
-              <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">AI-powered resume feedback and scoring</h1>
-              <p className="mt-3 max-w-2xl text-sm text-slate-400 sm:text-base">
-                Upload a resume, review ATS-specific suggestions, and monitor your overall score from one focused workspace.
-              </p>
+              <p className="text-sm font-medium text-cyan-400">Bottom Left</p>
+              <h2 className="text-xl font-semibold">Score</h2>
             </div>
-            <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
-              <span className="font-semibold">Status:</span> Ready for resume review
+            <div className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-200">
+              {scoreLabel}
             </div>
           </div>
-        </header>
 
-        <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-cyan-400">Chat Assistant</p>
-                <h2 className="text-xl font-semibold">Resume review workspace</h2>
-              </div>
-              <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-                Live feedback
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-300">Upload Resume</span>
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx,.txt"
-                  onChange={handleFileChange}
-                  className="block w-full cursor-pointer rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-slate-300 file:mr-4 file:rounded-xl file:border-0 file:bg-cyan-600 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white hover:border-cyan-500"
-                />
-                <p className="mt-2 text-xs text-slate-500">Required • PDF, DOC, DOCX, or TXT</p>
-              </label>
-
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-slate-300">Additional instructions</span>
-                <textarea
-                  value={question}
-                  onChange={(event) => setQuestion(event.target.value)}
-                  placeholder="Tell the assistant what to focus on..."
-                  rows={4}
-                  className="w-full rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-slate-100 outline-none ring-0 transition focus:border-cyan-500"
-                />
-              </label>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full rounded-2xl bg-cyan-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isLoading ? 'Analyzing resume...' : 'Analyze Resume'}
-              </button>
-            </form>
-
-            {error ? <p className="mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300">{error}</p> : null}
-          </div>
-
-          <div className="space-y-6">
-            <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-cyan-400">Dashboard</p>
-                  <h2 className="text-xl font-semibold">Resume score</h2>
-                </div>
-                <div className="rounded-full bg-slate-800 px-3 py-1 text-xs uppercase tracking-[0.25em] text-slate-400">
-                  ATS readout
-                </div>
-              </div>
-
-              <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900/70 p-5">
-                <div className="text-sm text-slate-400">Overall score</div>
-                <div className="mt-2 text-5xl font-semibold text-white">
-                  {result?.score ?? '—'}
-                  {result?.score ? '%' : ''}
-                </div>
-                <div className="mt-4 h-3 rounded-full bg-slate-800">
-                  <div
-                    className="h-3 rounded-full bg-gradient-to-r from-cyan-500 to-emerald-400"
-                    style={{ width: `${Math.min(result?.score ?? 0, 100)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur">
-              <div className="mb-4">
-                <p className="text-sm font-medium text-cyan-400">Feedback</p>
-                <h2 className="text-xl font-semibold">Improvement suggestions</h2>
-              </div>
-
-              {result?.suggestions?.length ? (
-                <ul className="space-y-3">
-                  {result.suggestions.map((suggestion, index) => (
-                    <li key={index} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-300">
-                      {suggestion}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-4 text-sm text-slate-500">
-                  Suggestions will appear here after the resume is analyzed.
-                </div>
-              )}
+          <div className="flex-1 rounded-3xl border border-slate-800 bg-slate-900/70 p-4">
+            <div className="text-sm text-slate-400">Overall ATS score</div>
+            <div className="mt-2 text-4xl font-semibold text-white">{result?.score ?? '—'}%</div>
+            <div className="mt-4 h-3 rounded-full bg-slate-800">
+              <div
+                className="h-3 rounded-full bg-gradient-to-r from-cyan-500 to-emerald-400"
+                style={{ width: `${Math.min(result?.score ?? 0, 100)}%` }}
+              />
             </div>
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-950/80 p-6 shadow-2xl shadow-black/30 backdrop-blur">
-          <p className="text-sm font-medium text-cyan-400">Assistant response</p>
-          <div className="mt-3 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 text-sm leading-7 text-slate-300">
-            {result?.answer ?? 'Upload a resume to receive an AI-generated review and tailored improvement advice.'}
+        <section className="flex flex-col rounded-[28px] border border-slate-800 bg-slate-950/80 p-5 shadow-2xl shadow-black/30 backdrop-blur sm:p-6">
+          <div className="mb-4">
+            <p className="text-sm font-medium text-cyan-400">Bottom Right</p>
+            <h2 className="text-xl font-semibold">Feedback</h2>
           </div>
+
+          {result?.suggestions?.length ? (
+            <ul className="flex-1 space-y-2 overflow-auto">
+              {result.suggestions.map((suggestion, index) => (
+                <li key={index} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3 text-sm text-slate-300">
+                  {suggestion}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 p-4 text-center text-sm text-slate-500">
+              Feedback appears here after you analyze a resume.
+            </div>
+          )}
         </section>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setIsChatOpen((prev) => !prev)}
+        className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-cyan-600 text-2xl shadow-xl shadow-cyan-900/40 transition hover:bg-cyan-500"
+        aria-label="Open resume editing assistant"
+      >
+        💬
+      </button>
+
+      {isChatOpen ? (
+        <div className="fixed bottom-24 right-5 z-50 w-[min(92vw,360px)] rounded-[24px] border border-slate-700 bg-slate-950/95 p-4 shadow-2xl shadow-black/40 backdrop-blur">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-cyan-400">Assistant</p>
+              <h3 className="text-base font-semibold">Edit help</h3>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsChatOpen(false)}
+              className="rounded-full bg-slate-800 px-2.5 py-1 text-sm text-slate-300"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="mb-3 max-h-56 space-y-2 overflow-auto rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
+            {chatMessages.map((message, index) => (
+              <div
+                key={index}
+                className={`rounded-2xl px-3 py-2 text-sm ${message.role === 'user' ? 'ml-auto bg-cyan-600 text-white' : 'bg-slate-800 text-slate-200'}`}
+              >
+                {message.text}
+              </div>
+            ))}
+          </div>
+
+          <form onSubmit={handleChatSubmit} className="flex gap-2">
+            <input
+              value={chatInput}
+              onChange={(event) => setChatInput(event.target.value)}
+              placeholder="Ask for edits..."
+              className="flex-1 rounded-2xl border border-slate-700 bg-slate-900/80 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500"
+            />
+            <button type="submit" className="rounded-2xl bg-cyan-600 px-3 py-2 text-sm font-semibold text-white">
+              Send
+            </button>
+          </form>
+        </div>
+      ) : null}
     </main>
   );
 }
